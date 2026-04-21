@@ -9,6 +9,16 @@ commands:
     run: uv run ruff check .
   - name: git-log
     run: git log --oneline -10
+  - name: plan
+    run: cat workspace/ralphs/improve-codebase/PLAN.md 2>/dev/null || echo "(no PLAN.md — bootstrap required)"
+  - name: backlog
+    run: cat workspace/ralphs/improve-codebase/backlog.md 2>/dev/null || echo "(no backlog.md)"
+  - name: iterations
+    run: tail -30 workspace/ralphs/improve-codebase/iterations.md 2>/dev/null || echo "(no iterations.md)"
+  - name: coverage-index
+    run: ls workspace/ralphs/improve-codebase/coverage/ 2>/dev/null || echo "(empty)"
+  - name: conventions
+    run: cat workspace/ralphs/improve-codebase/conventions.md 2>/dev/null || echo "(no conventions.md)"
 args:
   - focus
 ---
@@ -16,17 +26,51 @@ args:
 # Improve Codebase
 
 You are an autonomous coding agent running in a loop. Each iteration
-starts with a fresh context. Your progress lives in the code and git.
+starts with a fresh context. Your progress lives in the code, in git,
+and in the workspace at `workspace/ralphs/improve-codebase/`.
 
-## Recent changes
+## Workspace
+
+All state for this ralph lives under `workspace/ralphs/improve-codebase/`.
+Do not read or write files under `workspace/ralphs/` for any other ralph.
+
+Layout:
+- `PLAN.md` — living plan: phases, current focus, priorities
+- `backlog.md` — ordered queue of concrete next items
+- `iterations.md` — append-only log, one line per iteration
+- `conventions.md` — learned repo-wide patterns
+- `coverage/<module>.md` — per-module notes, each tagged with the commit sha it was valid at
+
+## Plan
+
+{{ commands.plan }}
+
+## Backlog
+
+{{ commands.backlog }}
+
+## Recent iterations
+
+{{ commands.iterations }}
+
+## Coverage notes on file
+
+{{ commands.coverage-index }}
+
+Only read the specific coverage note(s) for the module you touch this
+iteration. Do not dump all of them into context.
+
+## Conventions
+
+{{ commands.conventions }}
+
+## Recent commits
 
 {{ commands.git-log }}
 
 ## Test results
 
 {{ commands.tests }}
-
-If any tests are failing above, fix them before doing anything else.
 
 ## Type checking
 
@@ -36,55 +80,62 @@ If any tests are failing above, fix them before doing anything else.
 
 {{ commands.lint }}
 
-Fix any type errors or lint violations above before making new changes.
+If tests, types, or lint are failing, fix that before anything else.
 
 ## Task
 
 Make improvements to this codebase without changing any functionality.
 {{ args.focus }}
 
-Pick one improvement per iteration from the categories below (or discover your own). Research the code before changing anything.
+### Bootstrap (if PLAN.md is missing)
 
-## Improvement categories
+This is the first iteration. Do not change production code.
 
-### Code Quality
-- Remove dead code, unused imports, and unreachable branches
-- Eliminate code duplication by extracting shared logic into reusable functions
-- Replace magic numbers and hardcoded strings with named constants
-- Simplify overly complex conditionals and nested logic
+1. Survey the codebase: structure, stack, size, existing conventions.
+2. Create `workspace/ralphs/improve-codebase/PLAN.md` with phases (e.g.
+   dead code → duplication → naming → structure → tests), the current
+   phase, and explicit priorities tailored to what you saw.
+3. Create empty `backlog.md`, `iterations.md`, `conventions.md`, and
+   the `coverage/` directory (add a `.gitkeep`).
+4. Commit with message `workspace: bootstrap improve-codebase` and push.
 
-### Structure & Organization
-- Break up large files or functions that are doing too many things
-- Move code to more logical locations (wrong file, wrong module, wrong layer)
-- Standardize inconsistent naming conventions across the codebase
-- Group related functionality that is scattered across unrelated files
+### Normal iteration
 
-### Robustness
-- Add missing error handling and edge case coverage
-- Replace silent failures with meaningful errors or logs
-- Harden functions that assume inputs are always valid
+1. Read PLAN.md and backlog.md. Pick the next item consistent with the
+   current phase.
+2. If the item touches a specific module, read
+   `workspace/ralphs/improve-codebase/coverage/<module>.md` first.
+   If a coverage note's sha is older than 10 commits, re-verify before
+   trusting it.
+3. Make exactly one improvement. Do not change functionality.
+4. Ensure tests, types, and lint all pass.
+5. Commit the code change with a descriptive message.
+6. Update the workspace:
+   - Append one line to `iterations.md`: `<sha> <one-line summary>`
+   - Update `PLAN.md` if priorities shifted or a phase completed
+   - Remove the item from `backlog.md`; add anything new you noticed
+   - Update or create `coverage/<module>.md` with what changed and the new sha
+   - Add to `conventions.md` only if you learned a repo-wide pattern
+7. Commit the workspace change separately with prefix `workspace:`.
+8. Push.
 
-### Readability
-- Add or improve inline comments for non-obvious logic
-- Improve variable and function names that are vague or misleading
-- Normalize inconsistent formatting, spacing, or style
+## Seed ideas for planning (use in bootstrap or when the backlog is empty)
 
-### Tests
-- Increase test coverage for untested or undertested modules
-- Remove flaky, redundant, or low-value tests
-- Improve test naming so failures are self-explanatory
+- **Code quality**: dead code, duplication, magic values, complex conditionals
+- **Structure**: oversized files/functions, misplaced code, inconsistent naming
+- **Robustness**: missing error handling, silent failures, unchecked inputs
+- **Readability**: vague names, inconsistent style, non-obvious logic without comments
+- **Tests**: coverage gaps, flaky tests, unclear test names
+- **Dependencies**: unused deps, duplicated config, deprecated library usage
 
-### Dependencies & Config
-- Remove unused dependencies
-- Consolidate duplicated configuration
-- Replace deprecated library usage with modern equivalents
-
-This is not an exhaustive list. If you discover opportunities for improving the codebase while not changing functionality, go for it!
+Not exhaustive. If you spot improvements outside these, add them to the backlog.
 
 ## Rules
 
 - One improvement per iteration
-- Research code before creating anything new
+- No functionality changes — behavior must be preserved
+- Code commits and `workspace:` commits must be separate
+- Coverage notes must record the commit sha they were valid at
+- If PLAN.md disagrees with reality, update PLAN.md — do not follow it blindly
 - No placeholder code — full, working implementations only
-- Fix all test failures, type errors, and lint violations before committing
-- Commit with a descriptive message and push
+- Fix all test/type/lint failures before committing
